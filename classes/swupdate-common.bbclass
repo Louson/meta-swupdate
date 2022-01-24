@@ -227,6 +227,30 @@ def swupdate_expand_auto_versions(d, s):
     with open(os.path.join(s, "sw-description"), 'w+') as f:
         f.write(data)
 
+def swupdate_expand_auto_ivt(d, iv):
+    import re
+    import oe.packagedata
+    AUTO_IVT_TAG = "@SWU_AUTO_IVT"
+    AUTOIVT_REGEXP = "ivt\s*=\s*\"%s" % AUTO_IVT_TAG
+
+    s = d.getVar('S', True)
+
+    with open(os.path.join(s, "sw-description"), 'r') as f:
+        data = f.read()
+
+    regexp = re.compile(r"\{[^\{]*%s.[^\}]*\}" % (AUTOIVT_REGEXP))
+    while True:
+        m = regexp.search(data)
+        if not m:
+            break
+
+        group = data[m.start():m.end()]
+        group = group.replace(AUTO_IVT_TAG, iv)
+        data = data[:m.start()] + group + data[m.end():]
+
+    with open(os.path.join(s, "sw-description"), 'w+') as f:
+        f.write(data)
+
 def prepare_sw_description(d):
     import shutil
     import subprocess
@@ -236,6 +260,11 @@ def prepare_sw_description(d):
     swupdate_expand_auto_versions(d, s)
 
     swupdate_write_sha256(s)
+
+    aes_file = d.getVar('SWUPDATE_AES_FILE', True)
+    if aes_file:
+        key,iv = swupdate_extract_keys(aes_file)
+        swupdate_expand_auto_ivt(d, iv)
 
     encrypt = d.getVar('SWUPDATE_ENCRYPT_SWDESC', True)
     if encrypt:
